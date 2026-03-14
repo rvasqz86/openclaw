@@ -1,6 +1,17 @@
+# Works standalone (Coolify, Portainer, etc.) or with docker-setup.sh.
+# When OPENCLAW_CONFIG_DIR / OPENCLAW_WORKSPACE_DIR are unset, named
+# Docker volumes are used so no host paths are required.
+volumes:
+  openclaw-config:
+  openclaw-workspace:
+
 services:
   openclaw-gateway:
+    build:
+      context: .
+      dockerfile: Dockerfile
     image: ${OPENCLAW_IMAGE:-openclaw:local}
+    user: root
     environment:
       HOME: /home/node
       TERM: xterm-256color
@@ -10,9 +21,11 @@ services:
       CLAUDE_WEB_SESSION_KEY: ${CLAUDE_WEB_SESSION_KEY:-}
       CLAUDE_WEB_COOKIE: ${CLAUDE_WEB_COOKIE:-}
       TZ: ${OPENCLAW_TZ:-UTC}
+      OPENCLAW_DEFAULT_MODEL: ${OPENCLAW_DEFAULT_MODEL:-}
+      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
     volumes:
-      - ${OPENCLAW_CONFIG_DIR}:/home/node/.openclaw
-      - ${OPENCLAW_WORKSPACE_DIR}:/home/node/.openclaw/workspace
+      - ${OPENCLAW_CONFIG_DIR:-openclaw-config}:/home/node/.openclaw
+      - ${OPENCLAW_WORKSPACE_DIR:-openclaw-workspace}:/home/node/.openclaw/workspace
       ## Uncomment the lines below to enable sandbox isolation
       ## (agents.defaults.sandbox). Requires Docker CLI in the image
       ## (build with --build-arg OPENCLAW_INSTALL_DOCKER_CLI=1) or use
@@ -28,13 +41,9 @@ services:
     restart: unless-stopped
     command:
       [
-        "node",
-        "dist/index.js",
-        "gateway",
-        "--bind",
-        "${OPENCLAW_GATEWAY_BIND:-lan}",
-        "--port",
-        "18789",
+        "sh",
+        "-c",
+        "find /home/node/.openclaw -xdev -exec chown node:node {} + 2>/dev/null; runuser -u node -- node -e \"var e=process.env,fs=require('fs'),f='/home/node/.openclaw/openclaw.json',c={};try{c=JSON.parse(fs.readFileSync(f,'utf8'))}catch{};c.gateway=c.gateway||{};c.gateway.controlUi=c.gateway.controlUi||{};c.gateway.controlUi.dangerouslyAllowHostHeaderOriginFallback=true;if(e.OPENCLAW_DEFAULT_MODEL){c.agents=c.agents||{};c.agents.defaults=c.agents.defaults||{};c.agents.defaults.model=e.OPENCLAW_DEFAULT_MODEL}fs.mkdirSync('/home/node/.openclaw',{recursive:true});fs.writeFileSync(f,JSON.stringify(c,null,2))\" 2>/dev/null || true; exec runuser -u node -- node dist/index.js gateway --bind ${OPENCLAW_GATEWAY_BIND:-lan} --port 18789 --allow-unconfigured",
       ]
     healthcheck:
       test:
@@ -50,6 +59,9 @@ services:
       start_period: 20s
 
   openclaw-cli:
+    build:
+      context: .
+      dockerfile: Dockerfile
     image: ${OPENCLAW_IMAGE:-openclaw:local}
     network_mode: "service:openclaw-gateway"
     cap_drop:
@@ -68,8 +80,8 @@ services:
       CLAUDE_WEB_COOKIE: ${CLAUDE_WEB_COOKIE:-}
       TZ: ${OPENCLAW_TZ:-UTC}
     volumes:
-      - ${OPENCLAW_CONFIG_DIR}:/home/node/.openclaw
-      - ${OPENCLAW_WORKSPACE_DIR}:/home/node/.openclaw/workspace
+      - ${OPENCLAW_CONFIG_DIR:-openclaw-config}:/home/node/.openclaw
+      - ${OPENCLAW_WORKSPACE_DIR:-openclaw-workspace}:/home/node/.openclaw/workspace
     stdin_open: true
     tty: true
     init: true
