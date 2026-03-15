@@ -12,6 +12,8 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+      args:
+        OPENCLAW_EXTENSIONS: ${OPENCLAW_EXTENSIONS:-slack}
     image: ${OPENCLAW_IMAGE:-openclaw:local}
     user: root
     environment:
@@ -25,6 +27,8 @@ services:
       TZ: ${OPENCLAW_TZ:-UTC}
       OPENCLAW_DEFAULT_MODEL: ${OPENCLAW_DEFAULT_MODEL:-}
       OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
+      SLACK_BOT_TOKEN: ${SLACK_BOT_TOKEN:-}
+      SLACK_APP_TOKEN: ${SLACK_APP_TOKEN:-}
     volumes:
       - ${OPENCLAW_CONFIG_DIR:-openclaw-config}:/home/node/.openclaw
       - ${OPENCLAW_WORKSPACE_DIR:-openclaw-workspace}:/home/node/.openclaw/workspace
@@ -47,7 +51,7 @@ services:
       [
         "sh",
         "-c",
-        "find /home/node/.openclaw -xdev -exec chown node:node {} + 2>/dev/null; runuser -u node -- node -e \"var e=process.env,fs=require('fs'),f='/home/node/.openclaw/openclaw.json',c={};try{c=JSON.parse(fs.readFileSync(f,'utf8'))}catch{};c.gateway=c.gateway||{};c.gateway.controlUi=c.gateway.controlUi||{};c.gateway.controlUi.dangerouslyAllowHostHeaderOriginFallback=true;if(e.OPENCLAW_DEFAULT_MODEL){c.agents=c.agents||{};c.agents.defaults=c.agents.defaults||{};c.agents.defaults.model=e.OPENCLAW_DEFAULT_MODEL}fs.mkdirSync('/home/node/.openclaw',{recursive:true});fs.writeFileSync(f,JSON.stringify(c,null,2))\" 2>/dev/null || true; node -e \"require('net').createServer(c=>{const s=require('net').connect(18789,'127.0.0.1');c.pipe(s);s.pipe(c);c.on('error',()=>s.destroy());s.on('error',()=>c.destroy())}).listen(80)\" & exec runuser -u node -- node dist/index.js gateway --bind ${OPENCLAW_GATEWAY_BIND:-lan} --port 18789 --allow-unconfigured",
+        "find /home/node/.openclaw -xdev -exec chown node:node {} + 2>/dev/null; mkdir -p /tmp/jiti && chmod 777 /tmp/jiti; runuser -u node -- node -e \"var e=process.env,fs=require('fs'),f='/home/node/.openclaw/openclaw.json',c={};try{c=JSON.parse(fs.readFileSync(f,'utf8'))}catch{};c.gateway=c.gateway||{};c.gateway.controlUi=c.gateway.controlUi||{};c.gateway.controlUi.dangerouslyAllowHostHeaderOriginFallback=true;if(e.OPENCLAW_DEFAULT_MODEL){c.agents=c.agents||{};c.agents.defaults=c.agents.defaults||{};c.agents.defaults.model=e.OPENCLAW_DEFAULT_MODEL}fs.mkdirSync('/home/node/.openclaw',{recursive:true});fs.writeFileSync(f,JSON.stringify(c,null,2))\" 2>/dev/null || true; node -e \"require('net').createServer(c=>{const s=require('net').connect(18789,'127.0.0.1');c.pipe(s);s.pipe(c);c.on('error',()=>s.destroy());s.on('error',()=>c.destroy())}).listen(80)\" & exec runuser -u node -- node dist/index.js gateway --bind ${OPENCLAW_GATEWAY_BIND:-lan} --port 18789 --allow-unconfigured",
       ]
     healthcheck:
       test:
